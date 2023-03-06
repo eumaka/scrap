@@ -123,7 +123,7 @@ int Atestmod::process_event(PHCompositeNode *topNode)
 {
 	_event++;
 
-	GetNodes(topNode);
+// 	GetNodes(topNode);
 
 	fill_tree(topNode);
 
@@ -193,7 +193,8 @@ void Atestmod::fill_tree(PHCompositeNode *topNode)
     
     float tile_phi = 0.; float tile_r = 0.; float tile_z = 0.;
     std::tuple<unsigned int, unsigned int, unsigned int > simindex;
-    int _arm = -1; int _sector = -1; int _tile = -1;
+    int _arm = -1; int _sector = -1; int _tile = -1; float x = 0.;
+    float y = 0.;
  
     
     unsigned int ntowers = _epd_towerinfos->size();
@@ -209,9 +210,12 @@ void Atestmod::fill_tree(PHCompositeNode *topNode)
            _arm = get<0>(simindex);
            _sector = get<1>(simindex);
            _tile = get<2>(simindex);
+	    
+	    x = tile_r * cos(tile_phi);
+            y = tile_r * sin(tile_phi);
            
-           _x.push_back(hiter->second->get_avg_x());
-           _y.push_back(hiter->second->get_avg_y());
+           _x.push_back(x);
+           _y.push_back(y);
            _z.push_back(tile_z);
            _e.push_back(raw_tower->get_energy()); 
            _s.push_back(_sector);
@@ -229,7 +233,8 @@ void Atestmod::fill_tree(PHCompositeNode *topNode)
 
     float tile_phic = 0.; float tile_rc = 0.; float tile_zc = 0.;
     std::tuple<unsigned int, unsigned int, unsigned int > simindexc;
-    int _armc = -1; int _sectorc = -1; int _tilec = -1;
+    int _armc = -1; int _sectorc = -1; int _tilec = -1; float xc = 0.;
+    float yc =0.;
     
     unsigned int ntowers2 = _epd_towerinfos_calib->size();
     for (unsigned int ch2 = 0; ch2 < ntowers2;  ch2++)
@@ -244,9 +249,12 @@ void Atestmod::fill_tree(PHCompositeNode *topNode)
            _armc = get<0>(simindexc);
            _sectorc = get<1>(simindexc);
            _tilec = get<2>(simindexc);
+	    
+	    xc = tile_rc * cos(tile_phic);
+            yc = tile_rc * sin(tile_phic);
            
-           _xc.push_back(hiter->second->get_avg_x());
-           _yc.push_back(hiter->second->get_avg_y());
+           _xc.push_back(x);
+           _yc.push_back(y);
            _zc.push_back(tile_zc);
            _calibe.push_back(raw_tower2->get_energy()); 
            _sc.push_back(_sectorc);
@@ -271,6 +279,7 @@ return;
 //-- GetNodes():
 //--   Get all the all the required nodes off the node tree
 //----------------------------------------------------------------------------//
+/*
 int Atestmod::GetNodes(PHCompositeNode * topNode) {
     
     
@@ -288,7 +297,7 @@ int Atestmod::GetNodes(PHCompositeNode * topNode) {
     
     
 }
-/*
+
 unsigned int Atestmod::getchannel(unsigned int tower_key)
 {
   int channels_per_sector = -1;
