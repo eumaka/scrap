@@ -6,6 +6,10 @@
 #include <fun4all/PHTFileServer.h>
 #include <fun4all/Fun4AllServer.h>
 
+
+#include <centrality/CentralityInfo.h>
+#include <centrality/CentralityInfov1.h>
+
 #include <calobase/TowerInfoContainer.h>
 #include <calobase/TowerInfoContainerv1.h>
 #include <calobase/TowerInfo.h>
@@ -190,6 +194,15 @@ void Atestmod::fill_tree(PHCompositeNode *topNode)
           std::cout << "Could not locate SEPD geometry node " << std::endl;
           exit(1);
       }
+	
+	
+    CentralityInfov1 *cent = findNode::getClass<CentralityInfov1>(topNode, "CentralityInfo");
+    if (!cent)
+    {
+           std::cout << " ERROR -- can't find CentralityInfo node" << std::endl;
+           exit(1);
+    }
+    _cent = cent->get_centile(CentralityInfo::PROP::bimp);
     
     float tile_phi = 0.; float tile_r = 0.; float tile_z = 0.;
     std::tuple<unsigned int, unsigned int, unsigned int > simindex;
