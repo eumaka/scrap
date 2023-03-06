@@ -52,6 +52,7 @@ class Atestmod: public SubsysReco
     
   //Event counter
   int _event;
+  float _cent;
   
   TTree* _event_tree;
 
