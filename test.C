@@ -89,7 +89,6 @@ int EpFinderReco::CreateNodes(PHCompositeNode *topNode)
     dstNode->addNode(AlgoNode);
   }
 
-
    for(int i = 0; i < 2; i++)
    {
      EpInfo *EpInfo_det = new EpInfov1();
@@ -137,9 +136,8 @@ void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
         return;
       }
 
-      int _b = hcent->FindBin(cent->get_centile(CentralityInfo::PROP::epd_NS)) - 1;
-
-	
+      int _b = cent->get_centile(CentralityInfo::PROP::epd_NS)/10;
+	     
      TowerInfoContainerv1 *_epd_towerinfos_calib = findNode::getClass<TowerInfoContainerv1>(topNode, "TOWERINFO_CALIB_EPD");
      if (!_epd_towerinfos_calib)
       {
@@ -162,6 +160,7 @@ void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
       tsehits.clear();
       
       float tile_phi = 0.; float tile_z = 0.; float tile_e = 0.;
+      int eta_bin = -1;
       unsigned int ntowers = _epd_towerinfos_calib->size();
       for (unsigned int ch = 0; ch < ntowers;  ch++)
       {
@@ -169,10 +168,12 @@ void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
          unsigned int thiskey =_epd_towerinfos_calib->encode_epd(ch);
 	 tile_phi = epdtilegeom->phi(thiskey);
 	 tile_z = epdtilegeom->z(thiskey);  
-	  
+	 eta_bin = raw_tower->getTowerEtaBin(thiskey);
+	      
 	 //truncate tile energies
 	 if ((raw_tower->get_energy()) < 0.2) continue; 
-         tile_e = (raw_tower->get_energy() < mapCalib->GetBinContent(_b + 1, i + 1)) ? raw_tower->get_energy() : mapCalib->GetBinContent(_b + 1, i + 1);
+	 std::cout<<eta_bin<<"\t"<<_b<<std::endl;
+//          tile_e = (raw_tower->get_energy() < mapCalib->GetBinContent(_b + 1, i + 1)) ? raw_tower->get_energy() : mapCalib->GetBinContent(_b + 1, i + 1);
 	      
 	 if(tile_z > 0)
 	 {
