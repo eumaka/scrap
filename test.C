@@ -7,14 +7,15 @@
 #include <g4main/PHG4Hit.h>
 #include <g4main/PHG4HitContainer.h>
 
-#include <calobase/RawTower.h>
-#include <calobase/RawTowerContainer.h>
-#include <calobase/RawTowerDefs.h>
-#include <calobase/RawTowerGeom.h>
-#include <calobase/RawTowerGeomContainer.h>
-
+#include <epd/EpdGeom.h>
 #include <centrality/CentralityInfo.h>
 #include <centrality/CentralityInfov1.h>
+
+#include <calobase/TowerInfoContainer.h>
+#include <calobase/TowerInfoContainerv1.h>
+#include <calobase/TowerInfo.h>
+#include <calobase/TowerInfov1.h>
+
 
 #include <fun4all/Fun4AllReturnCodes.h>
 #include <fun4all/SubsysReco.h>  // for SubsysReco
@@ -158,134 +159,6 @@ int EpFinderReco::ResetEvent(PHCompositeNode * /*topNode*/)
 void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
 {
   
-  else if (_do_ep == 3)
-  {
-    std::vector<EpHit> nehits;
-    nehits.clear();
-
-    std::vector<EpHit> sehits;
-    sehits.clear();
-
-    int _side = -1;
-    int phi_bin = -1;
-    int eta_bin = -1;
-    int num_phi = 24;
-    int num_eta = 16;
-    float meanPhi = 0.;
-    float nmips = 0.;
-
-    double _epd_e[2][16][24] = {{{0.0}}};
-    double _epd_e_calib[2][16][24] = {{{0.0}}};
-
-    PHG4HitContainer::ConstRange e_range = e_hit_container->getHits();
-    for (PHG4HitContainer::ConstIterator e_itr = e_range.first; e_itr != e_range.second; e_itr++)
-    {
-      PHG4Hit *ehit = e_itr->second;
-      if (!ehit)
-      {
-        continue;
-      }
-   
-      if (ehit->get_light_yield() < 0.0) continue;
-      if ((e_itr->second->get_t(0) > -50) && (e_itr->second->get_t(1) < 50))
-      {
-        TVector3 ehitPos(ehit->get_avg_x(), ehit->get_avg_y(), ehit->get_avg_z()); 
-        if (ehit->get_z(0) > 0)
-        {
-          _side = 1;
-        }
-        else
-        {
-          _side = 0;
-        }
-
-        if (_side == 1)
-        {
-          //do tile segmentation
-
-          if ((ehitPos.Eta() >= 2.01) && (ehitPos.Eta() < 4.29))
-          {
-            phi_bin = GetPhiBin(ehitPos.Phi(), num_phi);
-            eta_bin = heta->FindBin(ehitPos.Eta()) - 1;
-          }
-
-          if ((ehitPos.Eta() >= 4.29) && (ehitPos.Eta() < 4.96))
-          {
-            phi_bin = GetPhiBin(ehitPos.Phi(), 0.5 * num_phi);
-            eta_bin = heta->FindBin(ehitPos.Eta()) - 1;
-          }
-        }
-
-        // south wheel
-        else
-        {
-          if ((ehitPos.Eta() <= -2.01) && (ehitPos.Eta() > -4.29))
-          {
-            phi_bin = GetPhiBin(ehitPos.Phi(), num_phi);
-            eta_bin = heta->FindBin(-1 * ehitPos.Eta()) - 1;
-          }
-
-          if ((ehitPos.Eta() <= -4.29) && (ehitPos.Eta() > -4.96))
-          {
-            phi_bin = GetPhiBin(ehitPos.Phi(), 0.5 * num_phi);
-            eta_bin = heta->FindBin(-1 * ehitPos.Eta()) - 1;
-          }
-        }
-
-        if ((eta_bin >= 0) && (phi_bin >= 0)) _epd_e[_side][eta_bin][phi_bin] += ehit->get_light_yield();
-
-        if (_do_sepd_calib)
-        {
-          nmips = ehit->get_light_yield() / _sepdmpv;
-          if ((eta_bin >= 0) && (phi_bin >= 0)) _epd_e_calib[_side][eta_bin][phi_bin] += nmips;
-        }
-      }
-    }
-
-    for (int i = 0; i < num_eta; i++)
-    {
-      for (int j = 0; j < num_phi; j++)
-      {
-        if (_epd_e[1][i][j] > 0.0)
-        {
-          meanPhi = GetMeanPhi(j, num_phi);
-          if (i == 15) meanPhi = GetMeanPhi(j, 0.5 * num_phi);
-
-          EpHit newHit;
-          newHit.nMip = _epd_e[1][i][j];
-          newHit.phi = meanPhi;
-          nehits.push_back(newHit);
-        }
-      }
-    }
-
-    EpFinder_1->Results(nehits, 0, _EPD_EpInfoN);
-    nehits.clear();
-
-    for (int i = 0; i < num_eta; i++)
-    {
-      for (int j = 0; j < num_phi; j++)
-      {
-        if (_epd_e[0][i][j] > 0.0)
-        {
-          meanPhi = GetMeanPhi(j, num_phi);
-          if (i == 15) meanPhi = GetMeanPhi(j, 0.5 * num_phi);
-
-          EpHit newHit;
-          newHit.nMip = _epd_e[0][i][j];
-          newHit.phi = meanPhi;
-          sehits.push_back(newHit);
-        }
-      }
-    }
-
-    EpFinder_2->Results(sehits, 0, _EPD_EpInfoS);
-    sehits.clear();
-
-    if (_do_sepd_calib)
-    {
-      if (Verbosity() >= 1) std::cout << "using centrality dependent Nmip truncation" << std::endl;
-
       CentralityInfov1 *cent = findNode::getClass<CentralityInfov1>(topNode, "CentralityInfo");
       if (!cent)
       {
@@ -295,227 +168,84 @@ void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
 
       int _b = hcent->FindBin(cent->get_centile(CentralityInfo::PROP::epd_NS)) - 1;
 
+	
+     TowerInfoContainerv1 *_epd_towerinfos_calib = findNode::getClass<TowerInfoContainerv1>(topNode, "TOWERINFO_CALIB_EPD");
+     if (!_epd_towerinfos_calib)
+      {
+          std::cout << "Could not locate SEPD CALIB tower info node " << std::endl;
+          exit(1);
+      }
+
+     EpdGeom *epdtilegeom = findNode::getClass<EpdGeom>(topNode,"TOWERGEOM_EPD");
+     if (!epdtilegeom)
+      {
+          std::cout << "Could not locate SEPD geometry node " << std::endl;
+          exit(1);
+      }
+
+
       std::vector<EpHit> tnehits;
       tnehits.clear();
 
       std::vector<EpHit> tsehits;
       tsehits.clear();
-
-      for (int i = 0; i < num_eta; i++)
+      
+      float tile_phi = 0.; float tile_z = 0.; float tile_e = 0.;
+      unsigned int ntowers = _epd_towerinfos->size();
+      for (unsigned int ch = 0; ch < ntowers;  ch++)
       {
-        for (int j = 0; j < num_phi; j++)
-        {
-          if (_epd_e_calib[1][i][j] > 0.0)
-          {
-            meanPhi = GetMeanPhi(j, num_phi);
-            if (i == 15) meanPhi = GetMeanPhi(j, 0.5 * num_phi);
-
-            if (_epd_e_calib[1][i][j] < 0.2) continue;
-
-            float calib_e = (_epd_e_calib[1][i][j] < mapCalib->GetBinContent(_b + 1, i + 1)) ? _epd_e_calib[1][i][j] : mapCalib->GetBinContent(_b + 1, i + 1);
-
-            EpHit newHit;
-            newHit.nMip = calib_e;
-            newHit.phi = meanPhi;
-            tnehits.push_back(newHit);
-          }
-        }
+         TowerInfo *raw_tower = _epd_towerinfos_calib->get_tower_at_channel(ch);
+         unsigned int thiskey =_epd_towerinfos_calib->encode_epd(ch);
+	 tile_phi = epdtilegeom->phi(thiskey);
+	 tile_z = epdtilegeom->z(thiskey);  
+	  
+	 //truncate tile energies
+	 if ((raw_tower->get_energy()) < 0.2) continue; 
+         tile_e = (raw_tower->get_energy() < mapCalib->GetBinContent(_b + 1, i + 1)) ? raw_tower->get_energy() : mapCalib->GetBinContent(_b + 1, i + 1);
+	      
+	 if(tile_z > 0)
+	 {
+           EpHit newHit;
+           newHit.nMip = tile_e;
+           newHit.phi = meanPhi;
+           tnehits.push_back(newHit);
+	 }
+	 else if(tile_z < 0)
+	  {
+           EpHit newHit;
+           newHit.nMip = tile_e;
+           newHit.phi = meanPhi;
+           tsehits.push_back(newHit);
+	 }
+	      
       }
-
-      EpFinder_3->Results(tnehits, 0, _EPD_EpInfoN_calib);
-      tnehits.clear();
-
-      for (int i = 0; i < num_eta; i++)
-      {
-        for (int j = 0; j < num_phi; j++)
-        {
-          if (_epd_e_calib[0][i][j] > 0.0)
-          {
-            meanPhi = GetMeanPhi(j, num_phi);
-            if (i == 15) meanPhi = GetMeanPhi(j, 0.5 * num_phi);
-
-            if (_epd_e_calib[0][i][j] < 0.2) continue;
-
-            float calib_e = (_epd_e_calib[0][i][j] < mapCalib->GetBinContent(_b + 1, i + 1)) ? _epd_e_calib[0][i][j] : mapCalib->GetBinContent(_b + 1, i + 1);
-
-            EpHit newHit;
-            newHit.nMip = calib_e;
-            newHit.phi = meanPhi;
-            tsehits.push_back(newHit);
-          }
-        }
-      }
-
-      EpFinder_4->Results(tsehits, 0, _EPD_EpInfoS_calib);
-      tsehits.clear();
-    }
-  }
+	
+ 
+     EpFinder_det[0]->Results(tsehits, 0, _EpInfo_det[0]);
+     EpFinder_det[1]->Results(tnehits, 0, _EpInfo_det[1]);
+	
+     tsehits.clear(); 
+     tnehits.clear();
+ 
 
   return;
 }
 
 int EpFinderReco::GetNodes(PHCompositeNode *topNode)
 {
-  if (_do_ep == 0)
-  {
-    if (detector == "CEMC" || detector == "HCALOUT" || detector == "HCALIN")
-    {
-      //EpInfo nodes
-      EPNodeName = "EPINFO_" + detector;
-      _CALO_EpInfo = findNode::getClass<EpInfo>(topNode, EPNodeName);
-      if (!_CALO_EpInfo)
-      {
-        std::cout << PHWHERE << ": Could not find node: " << EPNodeName << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-
-      // Detector towers nodes
-      CaliTowerNodeName = "TOWER_CALIB_" + detector;
-      _calib_towers = findNode::getClass<RawTowerContainer>(topNode, CaliTowerNodeName);
-
-      if (!_calib_towers)
-      {
-        std::cout << PHWHERE << ": Could not find node: " << CaliTowerNodeName << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-
-      // Detector geometry nodes
-      TowerGeomNodeName = "TOWERGEOM_" + detector;
-      rawtowergeom = findNode::getClass<RawTowerGeomContainer>(topNode, TowerGeomNodeName);
-      if (!rawtowergeom)
-      {
-        std::cout << PHWHERE << ": Could not find node: " << TowerGeomNodeName << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-    }
-    else
-    {
-      std::cout << PHWHERE
-                << " Detector choice does not match, use a single calorimeter for this mode, exiting"
-                << std::endl;
-      gSystem->Exit(1);
-      exit(1);
-    }
-  }
-
-  else if (_do_ep == 1)
-  {
-    _CEMCHCAL_EpInfo = findNode::getClass<EpInfo>(topNode, "EPINFO_CEMCHCAL");
-    if (!_CEMCHCAL_EpInfo)
-    {
-      std::cout << PHWHERE << " EPINFO_CEMCHCAL node not found on node tree" << std::endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-
-    cemctowers = findNode::getClass<RawTowerContainer>(topNode, "TOWER_CALIB_CEMC");
-    if (!cemctowers)
-    {
-      std::cout << PHWHERE << ": Could not find node TOWER_CALIB_CEMC " << std::endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-
-    hcalotowers = findNode::getClass<RawTowerContainer>(topNode, "TOWER_CALIB_HCALOUT");
-    if (!hcalotowers)
-    {
-      std::cout << PHWHERE << ": Could not find node TOWER_CALIB_HCALOUT" << std::endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-
-    hcalitowers = findNode::getClass<RawTowerContainer>(topNode, "TOWER_CALIB_HCALIN");
-    if (!hcalitowers)
-    {
-      std::cout << PHWHERE << ": Could not find node TOWER_CALIB_HCALIN " << std::endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-
-    cemctowergeom = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_CEMC");
-    if (!cemctowergeom)
-    {
-      std::cout << PHWHERE << ": Could not find node TOWERGEOM_CEMC" << std::endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-
-    hcalotowergeom = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALOUT");
-    if (!hcalotowergeom)
-    {
-      std::cout << PHWHERE << ": Could not find node TOWERGEOM_HCALOUT" << std::endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-
-    hcalitowergeom = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALIN");
-    if (!hcalitowergeom)
-    {
-      std::cout << PHWHERE << ": Could not find node TOWERGEOM_HCALIN " << endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-  }
-  else if (_do_ep == 2)
-  {
-    if (detector != "BBC")
-    {
-      std::cout << PHWHERE
-                << " Detector choice does not match, use BBC for this mode, exiting"
-                << std::endl;
-      gSystem->Exit(1);
-      exit(1);
-    }
-
-    else
-    {
-      //EpInfo nodes
-      _BBC_EpInfoN = findNode::getClass<EpInfo>(topNode, "EPINFO_BBC_North");
-      if (!_BBC_EpInfoN)
-      {
-        std::cout << PHWHERE << ": Could not find node: EPINFO_BBC_North" << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-
-      _BBC_EpInfoS = findNode::getClass<EpInfo>(topNode, "EPINFO_BBC_South");
-      if (!_BBC_EpInfoN)
-      {
-        std::cout << PHWHERE << ": Could not find node: EPINFO_BBC_South" << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-      // G4 Hit nodes
-      b_hit_container = findNode::getClass<PHG4HitContainer>(topNode, "G4HIT_" + detector);
-      if (!b_hit_container)
-      {
-        std::cout << PHWHERE << ": Could not find node: G4HIT_BBC " << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-    }
-  }
-
  
   for(int i=0; i<2; i++)
   {
-
-    _CEMC_EpInfo_EtaSlice[i] = findNode::getClass<EpInfo>(topNode,Form("EpInfo_det%i",i));
-    if (!_CEMC_EpInfo_EtaSlice[i]) {
-      cout << PHWHERE << " _CEMC_EpInfo_EtaSlice"<<i<<" node not found on node tree"
-           << endl;
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
-
-
- 
-        _EPD_EpInfoN_calib = findNode::getClass<EpInfo>(topNode, "EPINFO_EPD_North_calib");
-        if (!_EPD_EpInfoN_calib)
-        {
-          std::cout << PHWHERE << ": Could not find node: EPINFO_EPD_North_calib" << std::endl;
+     _EpInfo_det[i] = findNode::getClass<EpInfo>(topNode,Form("EpInfo_det%i",i));
+     if (!_EpInfo_det[i]) 
+     {
+	  std::cout << PHWHERE << ": Could not find node:"<< _EpInfo_det" <<i<< std::endl;
           return Fun4AllReturnCodes::ABORTEVENT;
-        }
-
-        _EPD_EpInfoS_calib = findNode::getClass<EpInfo>(topNode, "EPINFO_EPD_South_calib");
-        if (!_EPD_EpInfoS_calib)
-        {
-          std::cout << PHWHERE << ": Could not find node: EPINFO_EPD_South_calib" << std::endl;
-          return Fun4AllReturnCodes::ABORTEVENT;
-        }
-      }
-
+     }
   }
+ 
   return Fun4AllReturnCodes::EVENT_OK;
+	
 }
 
 
