@@ -53,10 +53,10 @@ EpFinderReco::EpFinderReco(const std::string &name)
 
 EpFinderReco::~EpFinderReco()
 {
-  delete EpFinder_1;
-  delete EpFinder_2;
-  delete EpFinder_3;
-  delete EpFinder_4;
+  for(int i = 0; i < 2; i++)
+  {
+    delete EpFinder_det[i];
+  }
 }
 
 int EpFinderReco::Init(PHCompositeNode *topNode)
@@ -117,62 +117,15 @@ int EpFinderReco::CreateNodes(PHCompositeNode *topNode)
     dstNode->addNode(AlgoNode);
   }
 
-  //event plane info for a single calorimeter
 
-  if (_do_ep == 0)
-  {
-    EpInfo *EpInfo_Calo = new EpInfov1();
-    PHIODataNode<PHObject> *EpInfo_calo_node = new PHIODataNode<PHObject>(EpInfo_Calo, "EPINFO_" + detector, "PHObject");
-    AlgoNode->addNode(EpInfo_calo_node);
-  }
+   for(int i = 0; i < 2; i++)
+   {
+     EpInfo *EpInfo_det = new EpInfov1();
+     PHIODataNode<PHObject> *EpInfo_det_node = new PHIODataNode<PHObject>(EpInfo_det,Form("EpInfo_det%i",i), "PHObject");
+     AlgoNode->addNode(EpInfo_det_node);
+   }
 
-  //event plane info for cemc + hcals
-
-  if (_do_ep == 1)
-  {
-    EpInfo *CEMCHCAL_EpInfo = new EpInfov1();
-    PHIODataNode<PHObject> *CEMCHCAL_EpInfo_node = new PHIODataNode<PHObject>(CEMCHCAL_EpInfo, "EPINFO_CEMCHCAL", "PHObject");
-    AlgoNode->addNode(CEMCHCAL_EpInfo_node);
-  }
-
-  //event plane info for the BBC
-
-  else if (_do_ep == 2)
-  {
-    EpInfo *EpInfo_BBC_North = new EpInfov1();
-    PHIODataNode<PHObject> *EpInfo_BBC_North_node = new PHIODataNode<PHObject>(EpInfo_BBC_North, "EPINFO_BBC_North", "PHObject");
-    AlgoNode->addNode(EpInfo_BBC_North_node);
-
-    EpInfo *EpInfo_BBC_South = new EpInfov1();
-    PHIODataNode<PHObject> *EpInfo_BBC_South_node = new PHIODataNode<PHObject>(EpInfo_BBC_South, "EPINFO_BBC_South", "PHObject");
-    AlgoNode->addNode(EpInfo_BBC_South_node);
-  }
-
-  //event plane info for the EPD
-
-  else if (_do_ep == 3)
-  {
-    EpInfo *EpInfo_EPD_North = new EpInfov1();
-    PHIODataNode<PHObject> *EpInfo_EPD_North_node = new PHIODataNode<PHObject>(EpInfo_EPD_North, "EPINFO_EPD_North", "PHObject");
-    AlgoNode->addNode(EpInfo_EPD_North_node);
-
-    EpInfo *EpInfo_EPD_South = new EpInfov1();
-    PHIODataNode<PHObject> *EpInfo_EPD_South_node = new PHIODataNode<PHObject>(EpInfo_EPD_South, "EPINFO_EPD_South", "PHObject");
-    AlgoNode->addNode(EpInfo_EPD_South_node);
-
-    if (_do_sepd_calib)
-    {
-      EpInfo *EpInfo_EPD_North_calib = new EpInfov1();
-      PHIODataNode<PHObject> *EpInfo_EPD_North_calib_node = new PHIODataNode<PHObject>(EpInfo_EPD_North_calib, "EPINFO_EPD_North_calib", "PHObject");
-      AlgoNode->addNode(EpInfo_EPD_North_calib_node);
-
-      EpInfo *EpInfo_EPD_South_calib = new EpInfov1();
-      PHIODataNode<PHObject> *EpInfo_EPD_South_calib_node = new PHIODataNode<PHObject>(EpInfo_EPD_South_calib, "EPINFO_EPD_South_calib", "PHObject");
-      AlgoNode->addNode(EpInfo_EPD_South_calib_node);
-    }
-  }
-
-  return Fun4AllReturnCodes::EVENT_OK;
+    return Fun4AllReturnCodes::EVENT_OK;
 }
 
 int EpFinderReco::process_event(PHCompositeNode *topNode)
@@ -191,10 +144,12 @@ int EpFinderReco::End(PHCompositeNode * /*topNode*/)
 
 int EpFinderReco::ResetEvent(PHCompositeNode * /*topNode*/)
 {
-  EpFinder_1->ResetEvent();
-  EpFinder_2->ResetEvent();
-  EpFinder_3->ResetEvent();
-  EpFinder_4->ResetEvent();
+	
+  for(int i = 0; i < 2; i++)
+  {
+    EpFinder_det[i]->ResetEvent();
+  }
+
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
@@ -202,133 +157,7 @@ int EpFinderReco::ResetEvent(PHCompositeNode * /*topNode*/)
 
 void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
 {
-  if (_do_ep == 0)
-  {
-    std::vector<EpHit> hits;
-    hits.clear();
-
-    RawTowerContainer::ConstRange begin_end = _calib_towers->getTowers();
-    RawTowerContainer::ConstIterator itr = begin_end.first;
-    for (; itr != begin_end.second; ++itr)
-    {
-      RawTowerDefs::keytype towerid = itr->first;
-      RawTower *rawtower = _calib_towers->getTower(towerid);
-      if (rawtower)
-      {
-        EpHit newHit;
-        RawTowerGeom *tgeo = rawtowergeom->get_tower_geometry(towerid);
-        newHit.nMip = rawtower->get_energy();
-        newHit.phi = tgeo->get_phi();
-        hits.push_back(newHit);
-      }
-    }
-
-    EpFinder_1->Results(hits, 0, _CALO_EpInfo);
-    hits.clear();
-  }
-
-  else if (_do_ep == 1)
-  {
-    std::vector<EpHit> cemchcalhits;
-    cemchcalhits.clear();
-
-    RawTowerContainer::ConstRange cemc_begin_end = cemctowers->getTowers();
-    RawTowerContainer::ConstIterator cemc_itr = cemc_begin_end.first;
-    for (; cemc_itr != cemc_begin_end.second; ++cemc_itr)
-    {
-      RawTowerDefs::keytype cemctowerid = cemc_itr->first;
-      RawTower *cemcrawtower = cemctowers->getTower(cemctowerid);
-      if (cemcrawtower)
-      {
-        EpHit newHit;
-        RawTowerGeom *cemctgeo = cemctowergeom->get_tower_geometry(cemctowerid);
-        newHit.nMip = cemcrawtower->get_energy();
-        newHit.phi = cemctgeo->get_phi();
-        cemchcalhits.push_back(newHit);
-      }
-    }
-
-    RawTowerContainer::ConstRange hcalo_begin_end = hcalotowers->getTowers();
-    RawTowerContainer::ConstIterator hcalo_itr = hcalo_begin_end.first;
-    for (; hcalo_itr != hcalo_begin_end.second; ++hcalo_itr)
-    {
-      RawTowerDefs::keytype hcalotowerid = hcalo_itr->first;
-      RawTower *hcalorawtower = hcalotowers->getTower(hcalotowerid);
-      if (hcalorawtower)
-      {
-        EpHit newHit;
-        RawTowerGeom *hcalotgeo = hcalotowergeom->get_tower_geometry(hcalotowerid);
-        newHit.nMip = hcalorawtower->get_energy();
-        newHit.phi = hcalotgeo->get_phi();
-        cemchcalhits.push_back(newHit);
-      }
-    }
-
-    RawTowerContainer::ConstRange hcali_begin_end = hcalitowers->getTowers();
-    RawTowerContainer::ConstIterator hcali_itr = hcali_begin_end.first;
-    for (; hcali_itr != hcali_begin_end.second; ++hcali_itr)
-    {
-      RawTowerDefs::keytype hcalitowerid = hcali_itr->first;
-      RawTower *hcalirawtower = hcalitowers->getTower(hcalitowerid);
-      if (hcalirawtower)
-      {
-        EpHit newHit;
-        RawTowerGeom *hcalitgeo = hcalitowergeom->get_tower_geometry(hcalitowerid);
-        newHit.nMip = hcalirawtower->get_energy();
-        newHit.phi = hcalitgeo->get_phi();
-        cemchcalhits.push_back(newHit);
-      }
-    }
-
-    EpFinder_1->Results(cemchcalhits, 0, _CEMCHCAL_EpInfo);
-  }
-  else if (_do_ep == 2)
-  {
-    std::vector<EpHit> nbhits;
-    nbhits.clear();
-
-    std::vector<EpHit> sbhits;
-    sbhits.clear();
-
-    PHG4HitContainer::ConstRange b_range = b_hit_container->getHits();
-    for (PHG4HitContainer::ConstIterator b_itr = b_range.first; b_itr != b_range.second; b_itr++)
-    {
-      PHG4Hit *bhit = b_itr->second;
-      if (!bhit)
-      {
-        continue;
-      }
-
-      if (bhit->get_edep() < 0.0) continue;
-      if ((b_itr->second->get_t(0) > -50) && (b_itr->second->get_t(1) < 50))
-      {
-        TVector3 bhitPos(bhit->get_avg_x(), bhit->get_avg_y(), bhit->get_avg_z());
-        int id = bhit->get_layer();
-        if ((id & 0x40) == 0)
-        {
-          EpHit newHit;
-          newHit.nMip = bhit->get_edep();
-          newHit.phi = bhitPos.Phi();
-          nbhits.push_back(newHit);
-        }
-        else
-        {
-          EpHit newHit;
-          newHit.nMip = bhit->get_edep();
-          newHit.phi = bhitPos.Phi();
-          sbhits.push_back(newHit);
-        }
-      }
-    }
-
-    EpFinder_1->Results(nbhits, 0, _BBC_EpInfoN);
-
-    EpFinder_2->Results(sbhits, 0, _BBC_EpInfoS);
-
-    nbhits.clear();
-    sbhits.clear();
-  }
-
+  
   else if (_do_ep == 3)
   {
     std::vector<EpHit> nehits;
@@ -657,36 +486,19 @@ int EpFinderReco::GetNodes(PHCompositeNode *topNode)
     }
   }
 
-  else if (_do_ep == 3)
+ 
+  for(int i=0; i<2; i++)
   {
-    if (detector != "EPD")
-    {
-      std::cout << PHWHERE
-                << " Detector choice does not match, use EPD for this mode, exiting"
-                << std::endl;
-      gSystem->Exit(1);
-      exit(1);
+
+    _CEMC_EpInfo_EtaSlice[i] = findNode::getClass<EpInfo>(topNode,Form("EpInfo_det%i",i));
+    if (!_CEMC_EpInfo_EtaSlice[i]) {
+      cout << PHWHERE << " _CEMC_EpInfo_EtaSlice"<<i<<" node not found on node tree"
+           << endl;
+      return Fun4AllReturnCodes::ABORTEVENT;
     }
 
-    else
-    {
-      //EpInfo nodes
-      _EPD_EpInfoN = findNode::getClass<EpInfo>(topNode, "EPINFO_EPD_North");
-      if (!_EPD_EpInfoN)
-      {
-        std::cout << PHWHERE << ": Could not find node: EPINFO_EPD_North" << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
 
-      _EPD_EpInfoS = findNode::getClass<EpInfo>(topNode, "EPINFO_EPD_South");
-      if (!_EPD_EpInfoS)
-      {
-        std::cout << PHWHERE << ": Could not find node: EPINFO_EPD_South" << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-
-      if (_do_sepd_calib)
-      {
+ 
         _EPD_EpInfoN_calib = findNode::getClass<EpInfo>(topNode, "EPINFO_EPD_North_calib");
         if (!_EPD_EpInfoN_calib)
         {
@@ -702,47 +514,10 @@ int EpFinderReco::GetNodes(PHCompositeNode *topNode)
         }
       }
 
-      e_hit_container = findNode::getClass<PHG4HitContainer>(topNode, "G4HIT_" + detector);
-      if (!e_hit_container)
-      {
-        std::cout << PHWHERE << ": Could not find node: G4HIT_EPD " << std::endl;
-        return Fun4AllReturnCodes::ABORTEVENT;
-      }
-    }
   }
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-int EpFinderReco::GetPhiBin(float tphi, int numPhiDivisions)
-{
-  float sphi = ((2.0 * M_PI) / numPhiDivisions);
 
-  if (tphi >= (2.0 * M_PI))
-  {
-    tphi -= (2.0 * M_PI);
-  }
-  else if (tphi < 0.0)
-  {
-    tphi += (2.0 * M_PI);
-  }
 
-  return (int) (tphi / sphi);
-}
 
-float EpFinderReco::GetMeanPhi(int iphi, int numPhiDivisions)
-{
-  float sphi = ((2.0 * M_PI) / numPhiDivisions);
-  float mphi = ((float) iphi + 0.5) * sphi;
-
-  if (mphi >= (2.0 * M_PI))
-  {
-    mphi -= (2.0 * M_PI);
-  }
-
-  else if (mphi < 0.0)
-  {
-    mphi += (2.0 * M_PI);
-  }
-
-  return mphi;
-}
