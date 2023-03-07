@@ -47,7 +47,7 @@ using namespace std;
 
 EpFinderReco::EpFinderReco(const std::string &name)
   : SubsysReco(name)
-  , detector("CEMC")
+  , detector("EPD")
 {
 }
 
