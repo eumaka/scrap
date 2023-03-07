@@ -68,35 +68,6 @@ int EpFinderReco::Init(PHCompositeNode *topNode)
     EpFinder_det[i] = new EpFinder(1, 3);
   }
   
-
-  if (detector == "EPD")
-  {
-      double centrange[11] = { 0., 10., 20., 30., 40., 50., 60., 70., 80., 90., 100.};
-      hcent = new TH1D("hcent", "cent hist", 10, centrange);
-     
-      std::string sepdmapname;
-      const char *Calibroot = getenv("CALIBRATIONROOT");
-      if (Calibroot)
-      {
-        sepdmapname = Calibroot;
-      }
-      else
-      {
-        std::cout << "no CALIBRATIONROOT environment variable" << std::endl;
-        gSystem->Exit(1);
-      }
-
-      sepdmapname += "/EPD/Calibmap/sEPDCalibMap.root";
-
-      TFile *file = new TFile(sepdmapname.c_str());
-      mapCalib = (TH2F *) file->Get("epdcalib");
-      if (!mapCalib)
-      {
-        std::cout << "ERROR: mapCalib is NULL" << std::endl;
-        gSystem->Exit(1);
-      }
-    }
-  
     return CreateNodes(topNode);
 }
 
@@ -131,8 +102,8 @@ int EpFinderReco::CreateNodes(PHCompositeNode *topNode)
 
 int EpFinderReco::process_event(PHCompositeNode *topNode)
 {
-  GetNodes(topNode);
 
+  GetNodes(topNode);
   GetEventPlanes(topNode);
 
   return Fun4AllReturnCodes::EVENT_OK;
@@ -191,7 +162,7 @@ void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
       tsehits.clear();
       
       float tile_phi = 0.; float tile_z = 0.; float tile_e = 0.;
-      unsigned int ntowers = _epd_towerinfos->size();
+      unsigned int ntowers = _epd_towerinfos_calib->size();
       for (unsigned int ch = 0; ch < ntowers;  ch++)
       {
          TowerInfo *raw_tower = _epd_towerinfos_calib->get_tower_at_channel(ch);
@@ -207,18 +178,18 @@ void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
 	 {
            EpHit newHit;
            newHit.nMip = tile_e;
-           newHit.phi = meanPhi;
+           newHit.phi = tile_phi;
            tnehits.push_back(newHit);
 	 }
 	 else if(tile_z < 0)
 	  {
            EpHit newHit;
            newHit.nMip = tile_e;
-           newHit.phi = meanPhi;
+           newHit.phi = tile_phi;
            tsehits.push_back(newHit);
 	 }
 	      
-      }
+      }//end loop over sepd tower info
 	
  
      EpFinder_det[0]->Results(tsehits, 0, _EpInfo_det[0]);
@@ -227,7 +198,6 @@ void EpFinderReco::GetEventPlanes(PHCompositeNode *topNode)
      tsehits.clear(); 
      tnehits.clear();
  
-
   return;
 }
 
@@ -239,7 +209,7 @@ int EpFinderReco::GetNodes(PHCompositeNode *topNode)
      _EpInfo_det[i] = findNode::getClass<EpInfo>(topNode,Form("EpInfo_det%i",i));
      if (!_EpInfo_det[i]) 
      {
-	  std::cout << PHWHERE << ": Could not find node:"<< _EpInfo_det" <<i<< std::endl;
+	  std::cout << PHWHERE << ": Could not find node:"<< "_EpInfo_det" <<i<< std::endl;
           return Fun4AllReturnCodes::ABORTEVENT;
      }
   }
