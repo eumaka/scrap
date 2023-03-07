@@ -1,87 +1,68 @@
-
-#ifndef __Atestmod_H__
-#define __Atestmod_H__
+// Tell emacs that this is a C++ source
+//  -*- C++ -*-.
+#ifndef EVENTPLANE_EPFINDERRECO_H
+#define EVENTPLANE_EPFINDERRECO_H
 
 #include <fun4all/SubsysReco.h>
+
 #include <string>
-#include <vector>
 
-
-
-//Forward declerations
+//Forward declarations
 class PHCompositeNode;
-class TFile; 
-class TTree;
+class EpFinder;
+class EpInfo;
 class RawTowerContainer;
 class RawTowerGeomContainer;
-class TH2F;
-class TProfile;
-class SvtxTrackMap;
+class PHG4HitContainer;
+class TH1D;
 
-//class TowerInfoContainerv1;
-
-//TowerInfoContainerv1* towers
-
-
-//Brief: basic ntuple and histogram creation for sim evaluation
-class Atestmod: public SubsysReco
+class EpFinderReco : public SubsysReco
 {
- public: 
-  //Default constructor
-    Atestmod(const std::string &name="Atestmod");
+ public:
+  EpFinderReco(const std::string &name = "EpFinderReco");
+  ~EpFinderReco() override;
 
-  //Initialization, called for initialization
-  int Init(PHCompositeNode *);
+  int Init(PHCompositeNode *) override;
 
-  int InitRun(PHCompositeNode *); 
+  int process_event(PHCompositeNode *) override;
 
-  //Process Event, called for each event
-  int process_event(PHCompositeNode *);
+  int End(PHCompositeNode *) override;
 
-  //End, write and close files
-  int EndRun(PHCompositeNode *);
-  int End(PHCompositeNode *);
+  int ResetEvent(PHCompositeNode * /*topNode*/) override;
 
-  //Change output filename
-  void set_filename(const char* file)
-  { if(file) _outfile_name = file; }
+  void set_algo_node(const std::string &algonode) { _algonode = algonode; }
+
+  void set_ep_mode(int do_ep)
+  {
+    _do_ep = do_ep;
+  }
+
+  void Detector(const std::string &d)
+  {
+    detector = d;
+  }
 
  private:
-  //output filename
-  std::string _outfile_name;
-    
-  //Event counter
-  int _event;
-  float _cent;
-  
-  TTree* _event_tree;
-
-  std::vector<int> _s;
-  std::vector<int> _ns;
-  std::vector<int> _t;
-  std::vector<float> _x;
-  std::vector<float> _y;
-  std::vector<float> _z;
-  std::vector<float> _e;
-  
-  
-  std::vector<int> _sc;
-  std::vector<int> _nsc;
-  std::vector<int> _tc;
-  std::vector<float> _xc;
-  std::vector<float> _yc;
-  std::vector<float> _zc;
-  std::vector<float> _calibe;
-  
-
-  //User modules
-  void fill_tree(PHCompositeNode*);
-
-  //Get all the nodes
-  int GetNodes(PHCompositeNode *);
- // unsigned int getchannel(unsigned int tower_key);
  
+  TH1D *hcent = nullptr;
+  
+  void GetEventPlanes(PHCompositeNode *);
+  int GetNodes(PHCompositeNode *);
+  int CreateNodes(PHCompositeNode *);
 
+  std::string _algonode = "EVENT_PLANE";
+  int _do_ep = 0;
+
+  std::string detector = "EPD";
+
+  EpFinder *EpFinder_det[2] = nullptr;
+  
+  EpInfo *_EpInfo_det[2] = nullptr;
+
+
+  std::string CaliTowerNodeName;
+  std::string TowerGeomNodeName;
+  std::string EPNodeName;
 };
 
-#endif //* __Atestmod_H__ *//
+#endif  //* EVENTPLANE_EPFINDERRECO_H *//
